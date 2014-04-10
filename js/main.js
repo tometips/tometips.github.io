@@ -41,6 +41,10 @@ Handlebars.registerHelper('toHtmlId', function(context, options) {
     return toHtmlId(context);
 });
 
+Handlebars.registerHelper('tag', function(context, options) {
+    return tome.tag;
+});
+
 // See http://stackoverflow.com/a/92819/25507
 function talentImgError(image) {
     image.onerror = "";
@@ -57,12 +61,12 @@ var talent_by_type_template = Handlebars.compile(
             '<div class="panel panel-default">' +
                 '<div class="panel-heading clickable">' +
                     '<h3 class="panel-title">' +
-                        '<a data-toggle="collapse" data-target="#collapse-{{toHtmlId short_name}}">' +
+                        '<a data-toggle="collapse" data-target="#collapse-{{toHtmlId id}}">' +
                             '<img width="64" height="64" src="img/talents/{{#if image}}{{image}}{{else}}{{toLowerCase short_name}}.png{{/if}}" onerror="talentImgError(this)">' + '{{name}}' +
                         '</a>' +
                     '</h3>' +
                 '</div>' +
-                '<div id="collapse-{{toHtmlId short_name}}" class="talent-details panel-collapse collapse">' +
+                '<div id="collapse-{{toHtmlId id}}" class="talent-details panel-collapse collapse">' +
                     '<div class="panel-body">' +
                         "<dl>" +
                             "{{#if mode}}<dt>Use Mode</dt><dd>{{mode}}</dd>{{/if}}" +
@@ -72,6 +76,7 @@ var talent_by_type_template = Handlebars.compile(
                             "{{#if use_speed}}<dt>Use Speed</dt><dd>{{use_speed}}</dd>{{/if}}" +
                             '{{#if info_text}}<dt class="multiline-dd">Description</dt><dd>{{{info_text}}}</dd>{{/if}}' +
                         '</dl>' +
+                        '{{#if source_code}}<div class="source-link"><a href="http://git.net-core.org/darkgod/t-engine4/blob/{{tag}}/game/modules/tome/{{source_code.[0]}}#L{{source_code.[1]}}" target="_blank">View source</a></div>{{/if}}' +
                     '</div>' +
                 '</div>' +
             '</div>' +
