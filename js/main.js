@@ -1,3 +1,47 @@
+function scrollToId()
+{
+    var $hash = $(location.hash.replace(/\//g, '\\/'));
+    if ($hash.length) {
+        $("#content-container").scrollTop($("#content-container").scrollTop() + $hash.offset().top);
+    }
+}
+
+function enableExpandCollapseAll()
+{
+    $(".expand-all").addClass('glyphicon-collapse-down')
+        .attr('title', 'Expand All');
+    $(".collapse-all").addClass('glyphicon-collapse-up')
+        .attr('title', 'Collapse All');
+    $(".expand-all, .collapse-all").addClass('glyphicon clickable')
+        .click(function() {
+            $($(this).attr('data-target')).find('.collapse').collapse($(this).hasClass('expand-all') ? 'show' : 'hide');
+        });
+}
+
+function makeStickyHeader($header, $container)
+{
+    var $sticky = $header.clone();
+    $sticky.attr('id', $header.attr('id') + '-sticky')
+        .addClass('sticky')
+        .css('width', $header.width())
+        .hide()
+        .insertBefore($header);
+    $container.scroll(function() {
+        // Generic approach.  Lets the full header skip up a bit before the sticky header appears.
+        //if ($container.scrollTop() >= $sticky.outerHeight())
+        if ($header.children('h1').offset().top < $sticky.children('h1').offset().top) {
+            $sticky.show();
+            $header.css('visibility', 'hidden');
+        } else {
+            $sticky.hide();
+            $header.css('visibility', '');
+        }
+    });
+    $(window).resize(function() {
+        $sticky.css('width', $header.width());
+    });
+}
+
 ///Simplistic title-case function that capitalizes the beginning of every word.
 function toTitleCase(s)
 {
@@ -55,7 +99,7 @@ function talentImgError(image) {
 var talent_by_type_template = Handlebars.compile(
     // FIXME: type header and description
     "{{#each this}}" +
-        '<h2 id="talents/{{type}}">{{toTitleCase name}}</h2><div>' +
+        '<h2><a class="anchor" id="talents/{{type}}"></a>{{toTitleCase name}}</h2><div>' +
         '<p>{{description}}</p><div>' +
         "{{#each talents}}" +
             '<div class="panel panel-default">' +
@@ -127,6 +171,7 @@ function initializeRoutes() {
     });
 
     Finch.route("[talents]/:category", function(bindings) {
+        $("#content-container").scrollTop(0);
         loadDataIfNeeded('talents.' + bindings.category, function() {
             var this_nav = "#nav-" + bindings.category;
             $(this_nav).collapse('show');
@@ -137,6 +182,7 @@ function initializeRoutes() {
 
             fillNavTalents(tome, bindings.category);
             $("#content").html(listTalents(tome, bindings.category));
+            scrollToId();
         });
     });
 
@@ -215,6 +261,9 @@ $(function() {
     $("html").on("error", "img", function() {
         $(this).hide();
     });
+
+    makeStickyHeader($("#content-header"), $("#content-container"));
+    enableExpandCollapseAll();
 
     // Track Google Analytics as we navigate from one subpage / hash link to another.
     // Based on http://stackoverflow.com/a/4813223/25507
