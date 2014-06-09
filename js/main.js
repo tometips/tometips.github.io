@@ -210,7 +210,7 @@ var talent_by_type_template = Handlebars.compile(
 var talent_by_type_nav_template = Handlebars.compile(
     '<ul id="nav-talents" class="nav">' +
     '{{#if has_changes}}' +
-        '<li><a href="#changes/talents{{currentQuery}}"><span class="no-dropdown"></span>New in {{version}}</a></li>' +
+        '<li><a href="#changes/talents{{currentQuery}}"><span class="no-dropdown"></span>New in {{version_for_changes}}</a></li>' +
     '{{/if}}' +
     '{{#each talent_categories}}' +
         '<li><a href="#talents/{{toHtmlId this}}{{currentQuery}}"><span data-toggle="collapse" data-target="#nav-{{toHtmlId this}}" class="dropdown collapsed"></span>{{toTitleCase this}}</a>' +
@@ -328,9 +328,20 @@ var versions = (function() {
     }
 
     var versions = {
-        DEFAULT: '1.1.5',
-        current: '1.1.5',
-        ALL: [ '1.1.5', '1.2.0dev' ],
+        DEFAULT: '1.2.1',
+        current: '1.2.1',
+        ALL: [ '1.1.5', '1.2.1' ],
+        DISPLAY: {}, //{ 'master': '1.2.2dev' },
+
+        name: function(ver) {
+            return versions.DISPLAY[ver] || ver;
+        },
+
+        // Version display for "New in 1.x.y" in particular
+        DISPLAY_FOR_CHANGES: { '1.2.1': '1.2' },
+        name_for_changes: function(ver) {
+            return versions.DISPLAY_FOR_CHANGES[ver] || ver;
+        },
 
         update: function(query) {
             query = query || {};
@@ -368,7 +379,7 @@ var versions = (function() {
                     if (versions.ALL[i] == versions.DEFAULT) {
                         html += ' selected';
                     }
-                    html += '>' + versions.ALL[i] + '</option>';
+                    html += '>' + versions.name(versions.ALL[i]) + '</option>';
                 }
                 ($container || $el).removeClass("hidden").show();
                 $el.html(html);
@@ -401,6 +412,11 @@ function initializeRoutes() {
         // Default route.  We currently just have talents.
         default_route: crossroads.addRoute('', function() {
             hasher.replaceHash('talents');
+        }),
+
+        // Updates for previous versions of the site.
+        reroute1: crossroads.addRoute('changes/talents?ver=1.2.0dev', function() {
+            hasher.replaceHash('changes/talents?ver=master');
         }),
 
         changes_talents: crossroads.addRoute('changes/talents:?query:', function(query) {
@@ -481,6 +497,8 @@ function loadDataIfNeeded(data_file, success) {
     // Load top-level data, then reissue the request.
     if (!tome[versions.current]) {
         loadData('tome', function(data) {
+            data.version = versions.name(data.version);
+            data.version_for_changes = versions.name_for_changes(data.version);
             tome[versions.current] = data;
             loadDataIfNeeded(data_file, success);
         });
