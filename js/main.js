@@ -5,6 +5,11 @@ if (typeof String.prototype.endsWith !== 'function') {
     };
 }
 
+function escapeHtml(s)
+{
+    return s.replace(/&/g, '&amp;').replace(/>/g, '&gt;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+}
+
 function locationHashNoQuery()
 {
     return location.hash.replace(/\?.*/, '');
@@ -18,6 +23,22 @@ function currentQuery()
         return '?' + query;
     } else {
         return '';
+    }
+}
+
+function updateNav()
+{
+    // Update nav links to use the current version query.
+    $("a[data-base-href]").each(function () {
+        $(this).attr('href', $(this).attr('data-base-href') + currentQuery());
+    });
+}
+
+function setActiveNav(active_nav_route)
+{
+    $(".nav li").removeClass("active");
+    if (active_nav_route) {
+        $(".nav a[data-base-href='" + active_nav_route + "']").parent().addClass("active");
     }
 }
 
@@ -127,12 +148,58 @@ function toHtmlId(s)
     return s.toLowerCase().replace(/[':]/, '_');
 }
 
+/**Given an object, return a new object that indexes the object's properties by
+ * HTML ID.
+ *
+ * For example, if classes = { 'WARRIOR': { 'short_name': 'WARRIOR', ... }, ...},
+ * then indexByHtmlId(classes, 'short_name') will return
+ * { 'warrior': { 'short_name': 'WARRIOR', ... }, ...}
+ */
+function indexByHtmlId(obj, property) {
+    return _.object(_.map(obj, function(elem) { return [ toHtmlId(elem[property]), elem ]; }));
+}
+
+///Iterates over properties, sorted. Based on http://stackoverflow.com/a/9058854/25507.
 Handlebars.registerHelper('eachProperty', function(context, options) {
-    var ret = "";
-    for (var prop in context) {
-        ret = ret + options.fn({property:prop,value:context[prop]});
+    var ret = "",
+        keys = _.keys(context || {});
+    keys.sort();
+    for (var i = 0; i < keys.length; i++) {
+        ret = ret + options.fn({key: keys[i], value: context[keys[i]]});
     }
     return ret;
+});
+
+/**Renders a partial, with additional arguments. Based on http://stackoverflow.com/a/14618035/25507
+ *
+ * Usage: Arguments are merged with the context for rendering only
+ * (non destructive). Use `:token` syntax to replace parts of the
+ * template path. Tokens are replace in order.
+ *
+ * USAGE: {{$ 'path.to.partial' context=newContext foo='bar' }}
+ * USAGE: {{$ 'path.:1.:2' replaceOne replaceTwo foo='bar' }}
+ */
+Handlebars.registerHelper('$', function (partial) {
+    var values, opts, done, value, context;
+    if (!partial) {
+        console.error('No partial name given.');
+    }
+    values = Array.prototype.slice.call(arguments, 1);
+    opts = values.pop().hash;
+    while (!done) {
+        value = values.pop();
+        if (value) {
+            partial = partial.replace(/:[^\.]+/, value);
+        } else {
+            done = true;
+        }
+    }
+    partial = Handlebars.partials[partial];
+    if (!partial) {
+        return '';
+    }
+    context = _.extend({}, opts.context || this, _.omit(opts, 'context', 'fn', 'inverse'));
+    return new Handlebars.SafeString(partial(context));
 });
 
 Handlebars.registerHelper('toTitleCase', function(context, options) {
@@ -143,9 +210,18 @@ Handlebars.registerHelper('toLowerCase', function(context, options) {
     return context.toLowerCase();
 });
 
+Handlebars.registerHelper('toDecimal', function(context, places, options) {
+   return context.toFixed(places || 2);
+});
+
 // ToME-specific function that makes a ToME ID a valid and standard HTML ID
 Handlebars.registerHelper('toHtmlId', function(context, options) {
     return toHtmlId(context);
+});
+
+// ToME-specific function that tries to make a name or ID into a te4.org wiki page name
+Handlebars.registerHelper('toWikiPage', function(context, options) {
+   return toTitleCase(context).replace(' ', '_');
 });
 
 Handlebars.registerHelper('tag', function(context, options) {
@@ -166,136 +242,17 @@ Handlebars.registerHelper('labelForChangeType', function(type) {
     return '<span class="label label-' + css_class[type] + '">' + text[type] + ':</span>';
 });
 
-// See http://stackoverflow.com/a/92819/25507
-function talentImgError(image) {
-    image.onerror = "";
-    image.src = "img/000000-0.png";
-    return true;
-}
-
-var talent_img = Handlebars.registerPartial("talent_img",
-    '<img width="{{opt "imgSize"}}" height="{{opt "imgSize"}}" src="img/talents/{{opt "imgSize"}}/{{#if image}}{{image}}{{else}}{{toLowerCase short_name}}.png{{/if}}" onerror="talentImgError(this)">'
-);
-
-var talent_details = Handlebars.registerPartial("talent",
-    "<dl class='dl-table'>" +
-        "{{#if require}}<dt>Requirements</dt><dd>{{require}}</dd>{{/if}}" +
-        "{{#if mode}}<dt>Use Mode</dt><dd>{{mode}}</dd>{{/if}}" +
-        "{{#if cost}}<dt>Cost</dt><dd>{{{cost}}}</dd>{{/if}}" +
-        "{{#if range}}<dt>Range</dt><dd>{{{range}}}</dd>{{/if}}" +
-        "{{#if cooldown}}<dt>Cooldown</dt><dd>{{{cooldown}}}</dd>{{/if}}" +
-        "{{#if use_speed}}<dt>Use Speed</dt><dd>{{use_speed}}</dd>{{/if}}" +
-        '{{#if info_text}}<dt class="multiline-dd">Description</dt><dd>{{{info_text}}}</dd>{{/if}}' +
-    '</dl>'
-);
-
-var talent_by_type_template = Handlebars.compile(
-    // FIXME: type header and description
-    "{{#each this}}" +
-        '<h2><a class="anchor" id="talents/{{type}}"></a>{{toTitleCase name}}</h2><div>' +
-        '<p>{{description}}</p><div>' +
-        "{{#each talents}}" +
-            '<div class="panel panel-default">' +
-                '<div class="panel-heading clickable">' +
-                    '<h3 class="panel-title">' +
-                        '<a data-toggle="collapse" data-target="#collapse-{{toHtmlId id}}">' +
-                            '{{> talent_img}}{{name}}' +
-                        '</a>' +
-                    '</h3>' +
-                '</div>' +
-                '<div id="collapse-{{toHtmlId id}}" class="talent-details panel-collapse collapse">' +
-                    '<div class="panel-body">' +
-                        '{{> talent}}' +
-                        '{{#if source_code}}<div class="source-link"><a href="http://git.net-core.org/darkgod/t-engine4/blob/{{tag}}/game/modules/tome/{{source_code.[0]}}#L{{source_code.[1]}}" target="_blank">View source</a></div>{{/if}}' +
-                    '</div>' +
-                '</div>' +
-            '</div>' +
-        "{{/each}}</div></div>" +
-    "{{/each}}"
-);
-
-var talent_by_type_nav_template = Handlebars.compile(
-    '<ul id="nav-talents" class="nav">' +
-    '{{#if hasMinorChanges}}' +
-        '<li><a href="#recent-changes/talents{{currentQuery}}"><span class="no-dropdown"></span>New in {{version}}</a></li>' +
-    '{{/if}}' +
-    '{{#if hasMajorChanges}}' +
-        '<li><a href="#changes/talents{{currentQuery}}"><span class="no-dropdown"></span>New in {{majorVersion}}</a></li>' +
-    '{{/if}}' +
-    '{{#each talent_categories}}' +
-        '<li><a href="#talents/{{toHtmlId this}}{{currentQuery}}"><span data-toggle="collapse" data-target="#nav-{{toHtmlId this}}" class="dropdown collapsed"></span>{{toTitleCase this}}</a>' +
-        '<ul class="nav collapse" id="nav-{{toHtmlId this}}">' +
-        // Empty for now; will be populated later
-        "</ul></li>" +
-    "{{/each}}</ul>"
-);
-
-var changes_talents_template = Handlebars.compile(
-    "{{#each this}}" +
-        '<h3><a class="anchor" id="changes/talents/{{name}}"></a>{{toTitleCase name}}</h3><div>' +
-        "{{#each values}}" +
-            '<div class="panel panel-default">' +
-                '<div class="panel-heading clickable">' +
-                    '<h3 class="panel-title">' +
-                        '<a data-toggle="collapse" data-target="#collapse-{{type}}-{{toHtmlId value.id}}">' +
-                            '{{> talent_img value}}{{{labelForChangeType type}}} {{value.name}}' +
-                        '</a>' +
-                    '</h3>' +
-                '</div>' +
-                '<div id="collapse-{{type}}-{{toHtmlId value.id}}" class="talent-details panel-collapse collapse">' +
-                        '{{#if value2}}' +
-                            '<table class="table table-bordered old-new">' +
-                                '<colgroup>' +
-                                    '<col width="50%">' +
-                                    '<col width="50%">' +
-                                '</colgroup>' +
-                                '<tr><th>Old</th><th>New</th></tr><tr>' +
-                                    '<td>{{> talent value2}}</td>' +
-                                    '<td>{{> talent value}}</td>' +
-                                '</tr>' +
-                            '</table>' +
-                        '{{else}}' + 
-                            '<div class="panel-body">' +
-                                '{{> talent value}}' +
-                            '</div>' +
-                        '{{/if}}' +
-                '</div>' +
-            '</div>' +
-        "{{/each}}</div></div>" +
-    "{{else}}" +
-        "<p>No talent changes in this version.</p>" +
-    "{{/each}}"
-);
-
-function navTalents(tome) {
-    return talent_by_type_nav_template(tome[versions.current]);
-}
-
-function fillNavTalents(tome, category) {
-    var $el = $("#nav-" + category),
-        talent_types = tome[versions.current].talents[category];
-    if ($.trim($el.html())) {
-        // Nav already exists; no need to do more.
-        return;
+Handlebars.registerHelper('stat', function(desc, value) {
+    var value_html;
+    if (!value) {
+        value_html = '<span class="stat-neutral">+0</span>';
+    } else if (value > 0) {
+        value_html = '<span class="stat-bonus">+' + value + '</span>';
+    } else {
+        value_html = '<span class="stat-penalty">' + value + '</span>';
     }
-
-    for (var i = 0; i < talent_types.length; i++) {
-        $el.append('<li><a href="#talents/' + toHtmlId(talent_types[i].type) + currentQuery() + '">' + toTitleCase(talent_types[i].name + '</a></li>'));
-        // "type" happens to be category/name, which is what we want for routing
-    }
-}
-
-function listTalents(tome, category) {
-    return talent_by_type_template(tome[versions.current].talents[category]);
-}
-
-function listChangesTalents(tome) {
-    return changes_talents_template(tome[versions.current].changes.talents);
-}
-
-function listRecentChangesTalents(tome) {
-    return changes_talents_template(tome[versions.current]["recent-changes"].talents);
-}
+    return new Handlebars.SafeString("<dt>" + desc + ":</dt><dd>" + value_html + "</dd>");
+});
 
 function configureImgSize() {
     options.imgSize = parseInt($.cookie("imgSize") || options.imgSize);
@@ -341,6 +298,8 @@ var versions = (function() {
         // module too closely to our DOM organization.)
         prev_expanded = getExpandedIds();
         $("#side-nav").html("");
+
+        updateNav();
     }
 
     var versions = {
@@ -416,20 +375,28 @@ var versions = (function() {
             $_dropdown = $el;
             versions.list($el, $container);
             versions.listen($el);
+            updateNav();
         }
     };
     versions.current = versions.DEFAULT;
     return versions;
 }());
 
-var routes;
+var routes,
+    load_nav_data_handler,
+    base_title = document.title;
 
 function initializeRoutes() {
     routes = {
 
         // Default route.  We currently just have talents.
-        default_route: crossroads.addRoute('', function() {
-            hasher.replaceHash('talents');
+        default_route: crossroads.addRoute(':?query:', function(query) {
+            versions.update(query);
+            document.title = base_title;
+            setActiveNav();
+
+            $("#content").html($("#news").html());
+            $("#side-nav").html('');
         }),
 
         // Updates for previous versions of the site.
@@ -442,6 +409,7 @@ function initializeRoutes() {
 
             $("#content-container").scrollTop(0);
             loadDataIfNeeded('changes.talents', function() {
+                document.title += ' - New in ' + tome[versions.current].majorVersion;
                 $("#content").html(listChangesTalents(tome));
 
                 versions.updateFinished();
@@ -454,6 +422,7 @@ function initializeRoutes() {
 
             $("#content-container").scrollTop(0);
             loadDataIfNeeded('recent-changes.talents', function() {
+                document.title += ' - New in ' + tome[versions.current].version;
                 $("#content").html(listRecentChangesTalents(tome));
 
                 versions.updateFinished();
@@ -462,10 +431,13 @@ function initializeRoutes() {
 
         talents: crossroads.addRoute('talents:?query:', function(query) {
             versions.update(query);
+            document.title = base_title + ' - Talents';
+            setActiveNav("#talents");
 
             if (!$("#nav-talents").length) {
                 loadDataIfNeeded('', function() {
                     $("#side-nav").html(navTalents(tome));
+                    load_nav_data_handler = loadNavTalents;
                     $("#content").html($("#news").html());
                 });
             }
@@ -473,6 +445,7 @@ function initializeRoutes() {
 
         talents_category: crossroads.addRoute("talents/{category}:?query:", function(category, query) {
             routes.talents.matched.dispatch(query);
+            document.title += ' - ' + toTitleCase(category);
 
             $("#content-container").scrollTop(0);
             loadDataIfNeeded('talents.' + category, function() {
@@ -489,10 +462,51 @@ function initializeRoutes() {
 
         talents_category_type: crossroads.addRoute("talents/{category}/{type}:?query:", function(category, type, query) {
             routes.talents_category.matched.dispatch(category, query);
+        }),
 
-            $("#collapse-" + type).collapse("show");
+        talents_category_type_id: crossroads.addRoute("talents/{category}/{type}/{talent_id}:?query:", function(category, type, talent_id, query) {
+            // TODO: scrollToId not yet working for talent_id links, and talent_id links aren't yet published
+            routes.talents_category.matched.dispatch(category, query);
+        }),
+
+        classes: crossroads.addRoute('classes:?query:', function(query) {
+            versions.update(query);
+            document.title += ' - Classes';
+            setActiveNav("#classes");
+
+            if (!$("#nav-classes").length) {
+                loadDataIfNeeded('classes', function() {
+                    $("#side-nav").html(navClasses(tome));
+                    load_nav_data_handler = false;
+                    $("#content").html($("#news").html());
+                });
+            }
+        }),
+
+        classes_class: crossroads.addRoute("classes/{cls}:?query:", function(cls, query) {
+            versions.update(query);
+
+            loadDataIfNeeded('classes', function() {
+                routes.classes.matched.dispatch(query);
+                document.title += ' - ' + tome[versions.current].classes.classes_by_id[cls].display_name;
+
+                $("#content-container").scrollTop(0);
+
+                var this_nav = "#nav-" + cls;
+                showCollapsed(this_nav);
+
+                $("#content").html(listClasses(tome, cls));
+                scrollToId();
+
+                fillClassTalents(tome, cls);
+
+                versions.updateFinished();
+            });
+        }),
+
+        classes_class_subclass: crossroads.addRoute("classes/{cls}/{subclass}:?query:", function(cls, subclass, query) {
+            routes.classes_class.matched.dispatch(cls, query);
         })
-
     }
 
     function parseHash(new_hash, old_hash) {
@@ -513,6 +527,11 @@ function loadData(data_file, success) {
     // FIXME: Error handling
 }
 
+/**Handler for expanding nav items. Takes a jQuery element that's being
+ * expanded and does any on-demand loading of the data for that nav item.
+ */
+load_nav_data_handler = false;
+
 /**Loads a section of JSON data into the tome object if needed, then executes
  * the success function handler.
  *
@@ -532,6 +551,8 @@ function loadDataIfNeeded(data_file, success) {
 
             data.version = versions.name(data.version);
             data.majorVersion = versions.asMajor(data.version);
+
+            data.fixups = {};
 
             tome[versions.current] = data;
             loadDataIfNeeded(data_file, success);
@@ -568,10 +589,28 @@ function loadDataIfNeeded(data_file, success) {
     }
 }
 
+window.onerror = function(msg, url, line) {
+    $("html").removeClass("wait");
+
+    if ($("#content").html() === 'Loading...') {
+        $("#content").html('');
+    }
+
+    $("#content").prepend(
+        '<div class="alert alert-danger">' +
+            'Internal error: ' + escapeHtml(msg || '') +
+            ' on ' + url + ' line ' + line +
+            '<button type="button" class="close" data-dismiss="alert"><span aria-hidden="true">&times;</span><span class="sr-only">Close</span></button>'  +
+        '</div>'
+    );
+}
+
 $(function() {
     // See http://stackoverflow.com/a/10801889/25507
     $(document).ajaxStart(function() { $("html").addClass("wait"); });
     $(document).ajaxStop(function() { $("html").removeClass("wait"); });
+
+    $("#side-nav-container .page-header").height($("#content-header").height());
 
     // Clicking on a ".clickable" element triggers the <a> within it.
     $("html").on("click", ".clickable", function(e) {
@@ -590,10 +629,9 @@ $(function() {
     });
 
     $("#side-nav").on("shown.bs.collapse", ".collapse", function(e) {
-       var category = $(this).attr('id').replace('nav-', '');
-       loadDataIfNeeded('talents.' + category, function() {
-            fillNavTalents(tome, category);
-        });
+        if (load_nav_data_handler) {
+            load_nav_data_handler($(this));
+        }
     });
 
     $("html").on("error", "img", function() {
@@ -618,4 +656,3 @@ $(function() {
 
     initializeRoutes();
 });
-
