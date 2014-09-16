@@ -52,11 +52,11 @@ function scrollToId()
 
 function enableExpandCollapseAll()
 {
-    $(".expand-all").addClass('glyphicon-collapse-down')
+    $(".expand-all").addClass('fa fa-toggle-down')
         .attr('title', 'Expand All');
-    $(".collapse-all").addClass('glyphicon-collapse-up')
+    $(".collapse-all").addClass('fa fa-toggle-up')
         .attr('title', 'Collapse All');
-    $(".expand-all, .collapse-all").addClass('glyphicon clickable')
+    $(".expand-all, .collapse-all").addClass('clickable')
         .click(function() {
             $($(this).attr('data-target')).find('.collapse').collapse($(this).hasClass('expand-all') ? 'show' : 'hide');
         });
@@ -157,6 +157,20 @@ function toHtmlId(s)
  */
 function indexByHtmlId(obj, property) {
     return _.object(_.map(obj, function(elem) { return [ toHtmlId(elem[property]), elem ]; }));
+}
+
+/**Marks up inline links to the ToME wiki */
+function markupHintLinks() {
+    // TODO: Try FontAwesome instead. I think it might look nicer than glyphicon here.
+    $('.hint-link[target!=_blank]').append(' <span class="fa fa-external-link"></span>')
+        .attr('target', '_blank');
+}
+
+function enableTalentTooltips() {
+    $(".html-tooltip").tooltip({ html: true });
+    $(".variable, .talent-variable, .stat-variable")
+        .attr('data-toggle', 'tooltip')
+        .tooltip({ html: true });
 }
 
 ///Iterates over properties, sorted. Based on http://stackoverflow.com/a/9058854/25507.
@@ -412,6 +426,8 @@ function initializeRoutes() {
                 document.title += ' - New in ' + tome[versions.current].majorVersion;
                 $("#content").html(listChangesTalents(tome));
 
+                enableTalentTooltips();
+
                 versions.updateFinished();
             });
         }),
@@ -424,6 +440,8 @@ function initializeRoutes() {
             loadDataIfNeeded('recent-changes.talents', function() {
                 document.title += ' - New in ' + tome[versions.current].version;
                 $("#content").html(listRecentChangesTalents(tome));
+
+                enableTalentTooltips();
 
                 versions.updateFinished();
             });
@@ -456,6 +474,15 @@ function initializeRoutes() {
                 $("#content").html(listTalents(tome, category));
                 scrollToId();
 
+                // Manually initialize .collapse; if we don't, then the first
+                // click on Hide All will actually expand all.
+                // See https://github.com/twbs/bootstrap/issues/5859
+                $(".talent-details.collapse").collapse({toggle: false});
+
+                enableTalentTooltips();
+
+                fillTalentAvailability(tome, category);
+
                 versions.updateFinished();
             });
         }),
@@ -475,7 +502,7 @@ function initializeRoutes() {
             setActiveNav("#classes");
 
             if (!$("#nav-classes").length) {
-                loadDataIfNeeded('classes', function() {
+                loadClassesIfNeeded(function() {
                     $("#side-nav").html(navClasses(tome));
                     load_nav_data_handler = false;
                     $("#content").html($("#news").html());
@@ -486,7 +513,7 @@ function initializeRoutes() {
         classes_class: crossroads.addRoute("classes/{cls}:?query:", function(cls, query) {
             versions.update(query);
 
-            loadDataIfNeeded('classes', function() {
+            loadClassesIfNeeded(function() {
                 routes.classes.matched.dispatch(query);
                 document.title += ' - ' + tome[versions.current].classes.classes_by_id[cls].display_name;
 
@@ -507,7 +534,7 @@ function initializeRoutes() {
         classes_class_subclass: crossroads.addRoute("classes/{cls}/{subclass}:?query:", function(cls, subclass, query) {
             routes.classes_class.matched.dispatch(cls, query);
         })
-    }
+    };
 
     function parseHash(new_hash, old_hash) {
          crossroads.parse(new_hash);
@@ -546,8 +573,10 @@ function loadDataIfNeeded(data_file, success) {
     // Load top-level data, then reissue the request.
     if (!tome[versions.current]) {
         loadData('tome', function(data) {
-            data.hasMajorChanges = data.majorVersion != versions.asMajor(versions.ALL[0]);
-            data.hasMinorChanges = data.version != versions.ALL[0] && !versions.isMajor(data.version) && data.version != 'master';
+            data.hasMajorChanges = versions.asMajor(data.version) != versions.asMajor(versions.ALL[0]);
+            data.hasMinorChanges = data.version != versions.ALL[0] &&
+                !versions.isMajor(data.version) &&
+                data.version != 'master';
 
             data.version = versions.name(data.version);
             data.majorVersion = versions.asMajor(data.version);

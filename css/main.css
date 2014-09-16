@@ -169,21 +169,25 @@ a.anchor
 }
 
 #side-nav .dropdown:before {
-    font-family: "Glyphicons Halflings";
+    font-family: "FontAwesome";
     font-size: 10px;
-    content: "\e114";
+    content: "\f078";
     padding-right: 5px;
+    width: 1.28571429em;    /* copied from fa-fw class */
+    display: inline-block;
 }
 
 #side-nav .dropdown.collapsed:before {
-    content: "\e080";
+    content: "\f054";
 }
 
 #side-nav .no-dropdown:before {
-    font-family: "Glyphicons Halflings";
+    font-family: "FontAwesome";
     font-size: 10px;
-    content: "\00a0";  /* Unicode non-breaking space - http://stackoverflow.com/a/16552398/25507 */
+    content: "\00a0";       /* Unicode non-breaking space - http://stackoverflow.com/a/16552398/25507 */
     padding-right: 5px;
+    width: 1.28571429em;    /* copied from fa-fw class */
+    display: inline-block;
 }
 
 .ver-dropdown-container {
@@ -191,13 +195,15 @@ a.anchor
 }
 
 .dropdown-option:before {
-    font-family: "Glyphicons Halflings";
-    content: "\00a0";  /* Unicode non-breaking space - http://stackoverflow.com/a/16552398/25507 */
+    font-family: "FontAwesome";
+    content: "\00a0";       /* Unicode non-breaking space - http://stackoverflow.com/a/16552398/25507 */
     padding-right: 5px;
+    width: 1.28571429em;    /* copied from fa-fw class */
+    display: inline-block;
 }
 
 .dropdown-option.selected:before {
-    content: "\e013";  /* Glyphicons check mark ("ok") */
+    content: "\f00c";  /* FontAwesome check mark ("ok") */
 }
 
 .dl-table dt {
@@ -222,6 +228,15 @@ h3 img {
     display: block;
     width: 100%;
     height: 100%;
+}
+
+.tooltip-inner {
+    text-align: left;
+}
+
+/* Manually copied from abbr[title]'s style */
+.html-tooltip {
+    border-bottom: dotted 1px #7a8288;
 }
 
 .variable, .stat-variable, .talent-variable {
@@ -259,6 +274,15 @@ h3 img {
 .panel-body {
     /* This is so .source-link's position:absolute will work. */
     position: relative;
+}
+
+/* A link that's merely a hint, so we want to de-emphasize a bit. */
+a.hint-link, a.hint-link:hover {
+    color: #c8c8c8;
+}
+
+a.hint-link .fa {
+    font-size: 75%;
 }
 
 .source-link, .wiki-link {
@@ -310,7 +334,7 @@ table.old-new td {
     padding-bottom: 5px;
 }
 
-.class-detail-container .talent-mastery {
+.talent-mastery {
     font-weight: bold;
 }
 
