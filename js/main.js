@@ -323,6 +323,7 @@ var typeahead = (function() {
             search[version][categories[i]] = new Bloodhound({
                 datumTokenizer: Bloodhound.tokenizers.obj.nonword('name'),
                 queryTokenizer: Bloodhound.tokenizers.nonword,
+                limit: 10,
                 prefetch: {
                     url: 'data/' + version + '/search.' + categories[i] + '.json',
                     thumbprint: VERSION
