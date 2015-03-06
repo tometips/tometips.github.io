@@ -15,11 +15,11 @@ function fixupClasses(tome) {
         });
     });
 
-        // Replace subclass IDs in each class's subclass_list with references
+    // Replace subclass IDs in each class's subclass_list with references
     // to the actual subclass definition.
     _.each(c.classes, function(elem) {
         elem.subclass_list = _.map(elem.subclass_list, function(sub) { return c.subclasses[sub]; });
-        elem.single_subclass = elem.subclass_list.length == 1
+        elem.single_subclass = elem.subclass_list.length == 1;
     });
 
     c.classes_by_id = indexByHtmlId(c.classes, 'short_name');
