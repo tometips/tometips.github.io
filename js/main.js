@@ -1,10 +1,32 @@
-var VERSION = '2015-03-04';
+var VERSION = '2015-03-19';
 
 // http://stackoverflow.com/a/2548133/25507
 if (typeof String.prototype.endsWith !== 'function') {
     String.prototype.endsWith = function(suffix) {
         return this.indexOf(suffix, this.length - suffix.length) !== -1;
     };
+}
+
+/**Parses query string-like parameters out of the end of the hash.
+ * Based on http://stackoverflow.com/a/2880929/25507
+ */
+function parseHashQueryString() {
+    var match,
+        pl     = /\+/g,  // Regex for replacing addition symbol with a space
+        search = /([^&=]+)=?([^&]*)/g,
+        decode = function (s) { return decodeURIComponent(s.replace(pl, " ")); },
+        query  = window.location.hash.substring(1),
+        url_params = {};
+
+    if (query.indexOf('?') != -1) {
+        query = query.substring(query.indexOf('?') + 1);
+
+        while (match = search.exec(query)) {
+           url_params[decode(match[1])] = decode(match[2]);
+        }
+    }
+
+    return url_params;
 }
 
 function escapeHtml(s)
@@ -440,9 +462,9 @@ var versions = (function() {
     }
 
     var versions = {
-        DEFAULT: '1.2.5',
-        ALL: [ '1.1.5', '1.2.0', '1.2.1', '1.2.2', '1.2.3', '1.2.4', '1.2.5', 'master' ],
-        DISPLAY: { 'master': '1.3beta' },
+        DEFAULT: '1.3.0',
+        ALL: [ '1.1.5', '1.2.0', '1.2.1', '1.2.2', '1.2.3', '1.2.4', '1.2.5', '1.3.0' /*, 'master'*/ ],
+        DISPLAY: { 'master': 'next' },
 
         name: function(ver) {
             return versions.DISPLAY[ver] || ver;
@@ -508,6 +530,14 @@ var versions = (function() {
             });
         },
 
+        // If 'master' isn't shown, then redirect queries to current release.
+        redirectMasterToDefault(new_hash, old_hash) {
+            if (parseHashQueryString().ver == 'master') {
+                hasher.replaceHash(locationHashNoQuery());
+                return true;
+            }
+        },
+
         init: function($el, $container) {
             $_dropdown = $el;
             versions.list($el, $container);
@@ -527,7 +557,7 @@ var routes,
 function initializeRoutes() {
     routes = {
 
-        // Default route.  We currently just have talents.
+        // Default route.
         default_route: crossroads.addRoute(':?query:', function(query) {
             versions.update(query);
             document.title = base_title;
@@ -704,7 +734,9 @@ function initializeRoutes() {
     };
 
     function parseHash(new_hash, old_hash) {
-         crossroads.parse(new_hash);
+        if (!versions.redirectMasterToDefault()) {
+            crossroads.parse(new_hash);
+        }
     }
 
     hasher.prependHash = '';
