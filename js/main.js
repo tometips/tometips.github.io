@@ -575,7 +575,7 @@ var masteries = (function() {
 
     var masteries = {
         DEFAULT: '1.3',
-        ALL: [ '0.8', '1.0', '1.1', '1.2', '1.3', '1.5' ],
+        ALL: [ '0.8', '1.0', '1.1', '1.2', '1.3', '1.5', '1.6' ],
 
         name: function(ver) {
             return ver;
