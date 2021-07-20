@@ -479,8 +479,8 @@ var versions = (function() {
     }
 
     var versions = {
-        DEFAULT: '1.7.0',
-        ALL: [ '1.4.9', '1.5.9', '1.6.7', '1.7.0' ],
+        DEFAULT: '1.7.4',
+        ALL: [ '1.4.9', '1.5.9', '1.6.7', '1.7.0', '1.7.4' ],
         DISPLAY: { 'master': 'next' },
 
         name: function(ver) {
